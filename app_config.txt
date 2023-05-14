@@ -1,0 +1,3 @@
+InputFolder: C:\Users\dinos\Desktop\C#\InputFolder
+lineNo: 500
+ErrorFolder: C:\Users\dinos\Desktop\C#\ErrorFolder
