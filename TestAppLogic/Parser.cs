@@ -85,6 +85,7 @@ public class Parser : ParserTemplate, IParser
     private long ElapsedTime { get; set; }
 
     private string FileName { get; set; }
+    private DateTime FileTimestamp { get; set; }
 
     private int LineNo { get; set; }
 
@@ -154,8 +155,7 @@ public class Parser : ParserTemplate, IParser
 
         if (isMatch) return true;
 
-        var err = string.Format("MSISDN in file: '{0}' at line: {1} is not valid.", FileName, lineNo);
-        log.Error(err);
+        var err = $"Line: {lineNo} - {$"{data.MSISDN};{data.Amount};{data.Timestamp}"} {DateTime.Now: yyyy.MM.dd. HH:mm:ss} Validation error";
 
         if (ErrorLog.ContainsKey(FileName))
         {
@@ -179,16 +179,17 @@ public class Parser : ParserTemplate, IParser
             return true;
         }
 
-        string err = string.Format("Timestamp in file: '{0}' at line: {1} is not valid.", FileName, lineNo);
-        log.Error(err);
+        var err = $"Line: {lineNo} - {$"{data.MSISDN};{data.Amount};{data.Timestamp}"} {DateTime.Now: yyyy.MM.dd. HH:mm:ss} Validation error";
 
         if (timestamp > DateTime.Now)
         {
-            log.Error($"\tTimestamp cannot be greater than the current timestamp: {DateTime.Now}");
+            err += $"Timestamp cannot be greater than the current timestamp: {DateTime.Now}";
+            log.Error($"Timestamp cannot be greater than the current timestamp: {DateTime.Now}");
         }
-        else
+        else if (timestamp > FileTimestamp)
         {
-            log.Error("\tTimestamp must be within the current month");
+            err += $"Timestamp cannot be greater than the timestamp in the file name: {FileTimestamp}";
+            log.Error($"Timestamp must be less than the timestamp in the file name {FileTimestamp}.");
         }
 
         if (ErrorLog.ContainsKey(FileName))
@@ -215,6 +216,20 @@ public class Parser : ParserTemplate, IParser
         }
         catch (FileNotFoundException)
         {
+        }
+    }
+
+    private void extractTimeStamp(string fileName)
+    {
+        string pattern = @"TestData_(\d{8}_\d{2}:\d{2}:\d{2}).csv";
+
+        // Use Regex.Match to find the first occurrence of the pattern
+        Match match = Regex.Match(fileName, pattern);
+
+        if (match.Success)
+        {
+            string timestamp = match.Groups[1].Value;
+            FileTimestamp = Convert.ToDateTime(timestamp);
         }
     }
 
