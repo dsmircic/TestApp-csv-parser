@@ -86,6 +86,7 @@ internal class ConsoleApp
         _ = CheckUserInput(args);
 
         log.Info("Done with executing.");
+
         return 0;
     }
 }

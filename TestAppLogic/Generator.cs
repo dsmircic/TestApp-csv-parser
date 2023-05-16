@@ -48,7 +48,7 @@ public abstract class GeneratorTemplate
     ///     Generates a Random date with a timestamp between the current date and the start of the month.
     /// </summary>
     /// <returns>A Random date with a timestamp.</returns>
-    protected abstract DateTime GenerateTimestamp();
+    protected abstract string GenerateTimestamp();
 }
 
 public class Generator : GeneratorTemplate, IGenerator
@@ -59,7 +59,7 @@ public class Generator : GeneratorTemplate, IGenerator
         MAX_AMOUNT = 10000,
         CURRENT_MONTH = (byte)DateTime.Now.Month,
         CURRENT_YEAR = (short)DateTime.Now.Year,
-        MSISDN_START = "HR3859",
+        MSISDN_START = "3859",
         secondMSDigit = new byte[] { 1, 2, 7, 8, 9 }
     };
 
@@ -75,9 +75,10 @@ public class Generator : GeneratorTemplate, IGenerator
         DateTime currentTime = DateTime.Now;
         ConfigParameters parameters = ConfigReader.ReadConfigData();
 
+        Console.WriteLine($"TestData_{DateTime.Now: yyyyMMdd_HHmmss}.csv");
+
         string[] headers = { "MSISDN", "Amount", "Timestamp" };
-        string fileName = string.Format("TestData_{0}-{1}-{2}_{3}-{4}-{5}.csv", currentTime.Year, currentTime.Month,
-            currentTime.Day, currentTime.Hour, currentTime.Minute, currentTime.Second);
+        var fileName = $"TestData_{DateTime.Now : yyyyMMdd_HHmmss}.csv";
 
         using StreamWriter writer = new(parameters.InputFolder + "\\" + fileName);
         writer.WriteLine(string.Join(";", headers));
@@ -98,7 +99,7 @@ public class Generator : GeneratorTemplate, IGenerator
         sw.Stop();
 
         writer.Close();
-        log.Info($"Finished generating {fileName} in {sw.ElapsedMilliseconds} miliseconds.");
+        log.Info($"Finished generating {fileName} in {sw.ElapsedMilliseconds} milliseconds.");
     }
 
 
@@ -110,7 +111,7 @@ public class Generator : GeneratorTemplate, IGenerator
 
     protected override string GenerateMsisdn()
     {
-        int sixDigit = Random.NextDouble() > 0.5 ? 6 : 5;
+        var sixDigit = Random.NextDouble() > 0.5 ? 6 : 5;
 
         StringBuilder stringBuilder = new();
 
@@ -126,13 +127,12 @@ public class Generator : GeneratorTemplate, IGenerator
         return stringBuilder.ToString();
     }
 
-    protected override DateTime GenerateTimestamp()
+    protected override string GenerateTimestamp()
     {
-        byte day = (byte)Random.Next(1, DateTime.Now.Day);
-        byte hours = (byte)Random.Next(0, DateTime.Now.Hour);
-        byte minutes = (byte)Random.Next(0, DateTime.Now.Minute);
-        byte seconds = (byte)Random.Next(0, DateTime.Now.Second);
+        var monthStart = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1, 0, 0, 0);
 
-        return new DateTime(_dataParameters.CURRENT_YEAR, _dataParameters.CURRENT_MONTH, day, hours, minutes, seconds);
+        var randomSeconds = Random.NextInt64(monthStart.Ticks, DateTime.Now.Ticks);
+
+        return monthStart.AddTicks(randomSeconds).ToString("yyyy.MM.dd. HH:mm:ss");
     }
 }

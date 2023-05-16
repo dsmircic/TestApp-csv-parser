@@ -18,7 +18,7 @@ public static class FileManager
         using StreamWriter writer = new(pathToFile);
         foreach (KeyValuePair<DayOfWeek, int> entry in dict)
         {
-            writer.WriteLine($"{entry.Key}: {entry.Value / 100},{entry.Value % 100} EUR");
+            writer.WriteLine($"{entry.Key}: {((decimal) entry.Value / 100) : 0.00} EUR");
         }
 
         writer.WriteLine("--------------------------------");
