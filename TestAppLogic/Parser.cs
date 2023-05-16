@@ -11,11 +11,6 @@ namespace TestAppLogic;
 public interface IParser
 {
     /// <summary>
-    ///     Aggregates amounts and creates a sum for each day of the week.
-    /// </summary>
-    void Aggregate();
-
-    /// <summary>
     ///     Validates given .csv if specified, whole InputFolder if not. Checks if each MSISDN, amount and timestamp is valid.
     /// </summary>
     void Parse();
@@ -32,9 +27,9 @@ public abstract class ParserTemplate
     /// <param name="lineNo">Specifies which line is currently being validated.</param>
     protected void ParseLine(InputData data, int lineNo)
     {
-        _ = ValidateMsisdn(data.MSISDN, lineNo);
-        _ = ValidateAmount(data.Amount, lineNo);
-        _ = ValidateTimestamp(data.Timestamp, lineNo);
+        _ = ValidateMsisdn(data, lineNo);
+        _ = ValidateAmount(data, lineNo);
+        _ = ValidateTimestamp(data, lineNo);
     }
 
     /// <summary>
@@ -43,7 +38,7 @@ public abstract class ParserTemplate
     /// <param name="amount">Amount to be checked.</param>
     /// <param name="lineNo">Line of .csv file where the amount is located.</param>
     /// <returns></returns>
-    protected abstract bool ValidateAmount(int amount, int lineNo);
+    protected abstract bool ValidateAmount(InputData data, int lineNo);
 
     /// <summary>
     ///     Validates MSISDN. Checks if it starts with 'HR3859',
@@ -53,7 +48,7 @@ public abstract class ParserTemplate
     /// <param name="MSISDN">String of MSISDN to be checked.</param>
     /// <param name="lineNo">Line of .csv file where given MSISDN is located.</param>
     /// <returns></returns>
-    protected abstract bool ValidateMsisdn(string MSISDN, int lineNo);
+    protected abstract bool ValidateMsisdn(InputData data, int lineNo);
 
     /// <summary>
     ///     Checks if the timestamp was created in the current month.
@@ -61,12 +56,12 @@ public abstract class ParserTemplate
     /// <param name="timestamp">Timestamp to be validated.</param>
     /// <param name="lineNo">Line of .csv file where the timestamp is located.</param>
     /// <returns></returns>
-    protected abstract bool ValidateTimestamp(DateTime timestamp, int lineNo);
+    protected abstract bool ValidateTimestamp(InputData data, int lineNo);
 }
 
 public class Parser : ParserTemplate, IParser
 {
-    private readonly IDictionary<DayOfWeek, int> _aggregate;
+    private readonly IDictionary<DayOfWeek, long> _aggregate;
 
     private readonly DataParameters _dataParams = new()
     {
@@ -82,7 +77,7 @@ public class Parser : ParserTemplate, IParser
 
     public Parser(string fileName = "")
     {
-        _aggregate = new Dictionary<DayOfWeek, int>();
+        _aggregate = new Dictionary<DayOfWeek, long>();
         ErrorLog = new Dictionary<string, IList<string>>();
         FileName = fileName;
     }
@@ -92,44 +87,6 @@ public class Parser : ParserTemplate, IParser
     private string FileName { get; set; }
 
     private int LineNo { get; set; }
-
-    public void Aggregate()
-    {
-        InitReader();
-
-        log.Info("Aggregating file: " + FileName);
-        InputData data;
-
-        do
-        {
-            data = _reader.ReadLine();
-            try
-            {
-                DayOfWeek dayOfWeek = data.Timestamp.DayOfWeek;
-                var amount = data.Amount;
-
-                if (_aggregate.ContainsKey(dayOfWeek))
-                {
-                    _aggregate[dayOfWeek] += amount;
-                }
-                else
-                {
-                    _aggregate.Add(dayOfWeek, amount);
-                }
-            }
-            catch
-            {
-            }
-        }
-        while (_reader.HasNextLine());
-
-        _reader.CloseReader();
-
-        log.Debug($"Writing aggregate results to file {FileName}.REPORT.txt");
-        FileManager.WriteAggregateToFile(FileName, _aggregate, ElapsedTime);
-
-        log.Info(string.Format("Finished aggregating file: '{0}' in: {1} milliseconds", FileName, ElapsedTime));
-    }
 
     public void Parse()
     {
@@ -151,23 +108,26 @@ public class Parser : ParserTemplate, IParser
         }
     }
 
-    protected override bool ValidateAmount(int amount, int lineNo)
+    protected override bool ValidateAmount(InputData data, int lineNo)
     {
+        var amount = data.Amount;
+
         if (amount is > 0 and <= 100000)
         {
             return true;
         }
 
-        var err = string.Format("Amount in file: '{0}' at line: {1} is not valid.", FileName, lineNo);
-        log.Error(err);
+        var err = $"Line: {lineNo} - {$"{data.MSISDN};{data.Amount};{data.Timestamp}"} {DateTime.Now : yyyy.MM.dd. HH:mm:ss} Validation error";
 
         if (amount > 10000)
         {
-            log.Error($"\tAmount cannot be greater than {_dataParams.MAX_AMOUNT}");
+            log.Error($"Amount cannot be greater than {_dataParams.MAX_AMOUNT}");
+            err += $" Amount cannot be greater than {_dataParams.MAX_AMOUNT}";
         }
         else
         {
-            log.Error($"\tAmount cannot be less than {_dataParams.MIN_AMOUNT}");
+            log.Error($"Amount cannot be less than {_dataParams.MIN_AMOUNT}");
+            err += $" Amount cannot be less than {_dataParams.MIN_AMOUNT}";
         }
 
         if (ErrorLog.ContainsKey(FileName))
@@ -182,9 +142,10 @@ public class Parser : ParserTemplate, IParser
         throw new InvalidDataException();
     }
 
-    protected override bool ValidateMsisdn(string MSISDN, int lineNo)
+    protected override bool ValidateMsisdn(InputData data, int lineNo)
     {
         var pattern = @"HR3859[12789]\d\d\d\d\d\d?";
+        var MSISDN = data.MSISDN;
 
         if (MSISDN == null)
             return false;
@@ -208,9 +169,10 @@ public class Parser : ParserTemplate, IParser
         throw new InvalidDataException();
     }
 
-    protected override bool ValidateTimestamp(DateTime timestamp, int lineNo)
+    protected override bool ValidateTimestamp(InputData data, int lineNo)
     {
         DateTime startOfMonth = new(DateTime.Now.Year, DateTime.Now.Month, 1, 0, 0, 0);
+        var timestamp = data.Timestamp;
 
         if (timestamp < DateTime.Now && timestamp >= startOfMonth)
         {
@@ -273,6 +235,17 @@ public class Parser : ParserTemplate, IParser
             try
             {
                 this.ParseLine(data, ++LineNo);
+                var day = data.Timestamp.DayOfWeek;
+
+                if (_aggregate.ContainsKey(day))
+                {
+                    _aggregate[day] += data.Amount;
+                }
+                else
+                {
+                    _aggregate[day] = data.Amount;
+                }
+
             }
             catch (InvalidDataException)
             {
@@ -294,10 +267,7 @@ public class Parser : ParserTemplate, IParser
 
         if (!ErrorLog.ContainsKey(FileName))
         {
-            Aggregate();
-
-            log.Info($"Moving {FileName} into: '{ConfigReader.ReadConfigData().ArchiveFolder}'.");
-            FileManager.MoveFileToArchive(FileName);
+            FileManager.WriteAggregateToFile(FileName, _aggregate, ElapsedTime);
         }
         else
         {
@@ -305,6 +275,10 @@ public class Parser : ParserTemplate, IParser
             FileManager.WriteErrorsToErrorFile(FileName, ErrorLog[FileName]);
             log.Debug($"Finished writing error logs to file {FileName}.ERRORS.txt");
         }
+
+        log.Info($"Moving {FileName} into: '{ConfigReader.ReadConfigData().ArchiveFolder}'.");
+        FileManager.MoveFileToArchive(FileName);
+
     }
 
     /// <summary>

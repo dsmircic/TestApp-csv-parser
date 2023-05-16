@@ -32,7 +32,7 @@ public struct InputData
 {
     public string MSISDN;
 
-    public int Amount;
+    public long Amount;
 
     public DateTime Timestamp;
 }

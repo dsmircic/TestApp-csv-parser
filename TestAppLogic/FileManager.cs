@@ -1,8 +1,11 @@
-﻿namespace TestAppLogic;
+﻿using log4net;
+
+namespace TestAppLogic;
 
 public static class FileManager
 {
     private static readonly ConfigParameters parameters = ConfigReader.ReadConfigData();
+    private static readonly ILog log = LogManager.GetLogger(typeof(FileManager));
 
     /// <summary>
     ///     Writes sums of values into an output file specified in the config file.
@@ -11,14 +14,21 @@ public static class FileManager
     /// <param name="fileName">Name of the file where the aggregate will be stored.</param>
     /// <param name="dict">Key: day of the week, value sum of cents on the given day.</param>
     /// <param name="elapsedTime"></param>
-    public static void WriteAggregateToFile(string fileName, IDictionary<DayOfWeek, int> dict, long elapsedTime)
+    public static void WriteAggregateToFile(string fileName, IDictionary<DayOfWeek, long> dict, long elapsedTime)
     {
         string pathToFile = Path.Combine(parameters.OutputFolder, fileName + ".REPORT.txt");
 
+        var sortedDict = dict.OrderBy(pair => pair.Key);
+        var maxKeyLength = sortedDict.Max(pair => pair.Key.ToString().Length);
+        string currentKey;
+        string paddedKey;
+
         using StreamWriter writer = new(pathToFile);
-        foreach (KeyValuePair<DayOfWeek, int> entry in dict)
+        foreach (KeyValuePair<DayOfWeek, long> entry in sortedDict)
         {
-            writer.WriteLine($"{entry.Key}: {((decimal) entry.Value / 100) : 0.00} EUR");
+            currentKey = entry.Key.ToString();
+            paddedKey = currentKey.PadRight(maxKeyLength);
+            writer.WriteLine($"{paddedKey}: {((decimal) entry.Value / 100) : 0.00} EUR");
         }
 
         writer.WriteLine("--------------------------------");
@@ -37,15 +47,31 @@ public static class FileManager
         var pathToFile = Path.Combine(parameters.ErrorFolder, fileName + ".ERROR.txt");
 
         using StreamWriter writer = new(pathToFile, true);
-        var errorLogTime = DateTime.Now;
         foreach (string error in errors)
         {
             writer.WriteLine(error);
         }
 
-        writer.WriteLine("Logging time: " + errorLogTime);
         writer.WriteLine();
         writer.Close();
+    }
+
+    /// <summary>
+    /// Moves the given file to the specified ErrorFolder.
+    /// </summary>
+    /// <param name="file"></param>
+    public static void MoveFileToErrorFolder(string file)
+    {
+        var source = Path.Combine(parameters.InputFolder, file);
+        var destination = Path.Combine(parameters.ArchiveFolder, file);
+
+        if (!File.Exists(destination))
+        {
+            log.Debug($"Starting relocation of {file} to {destination}...");
+            File.Move(source, destination);
+            log.Debug($"Finished relocation of {file} to {destination}.");
+        }
+
     }
 
     /// <summary>
@@ -57,7 +83,11 @@ public static class FileManager
         var source = Path.Combine(parameters.InputFolder, file);
         var destination = Path.Combine(parameters.ArchiveFolder, file);
 
-        File.Copy(source, destination, true);
-        File.Delete(source);
+        if (!File.Exists(destination))
+        {
+            log.Debug($"Starting relocation of {file} to {destination}...");
+            File.Move(source, destination);
+            log.Debug($"Finished relocation of {file} to {destination}.");
+        }
     }
 }
