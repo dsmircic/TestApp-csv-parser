@@ -75,8 +75,6 @@ public class Generator : GeneratorTemplate, IGenerator
         DateTime currentTime = DateTime.Now;
         ConfigParameters parameters = ConfigReader.ReadConfigData();
 
-        Console.WriteLine($"TestData_{DateTime.Now: yyyyMMdd_HHmmss}.csv");
-
         string[] headers = { "MSISDN", "Amount", "Timestamp" };
         var fileName = $"TestData_{DateTime.Now : yyyyMMdd_HHmmss}.csv";
 
@@ -133,6 +131,8 @@ public class Generator : GeneratorTemplate, IGenerator
 
         var randomSeconds = Random.NextInt64(monthStart.Ticks, DateTime.Now.Ticks);
 
-        return monthStart.AddTicks(randomSeconds).ToString("yyyy.MM.dd. HH:mm:ss");
+        var secondsToAdd = randomSeconds - monthStart.Ticks; 
+
+        return monthStart.AddTicks(secondsToAdd).ToString("yyyy.MM.dd. HH:mm:ss");
     }
 }

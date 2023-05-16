@@ -145,7 +145,7 @@ public class Parser : ParserTemplate, IParser
 
     protected override bool ValidateMsisdn(InputData data, int lineNo)
     {
-        var pattern = @"HR3859[12789]\d\d\d\d\d\d?";
+        var pattern = @"3859[12789]\d\d\d\d\d\d?";
         var MSISDN = data.MSISDN;
 
         if (MSISDN == null)
@@ -242,6 +242,7 @@ public class Parser : ParserTemplate, IParser
         stopwatch.Start();
 
         log.Info("Parsing file: " + FileName);
+        extractTimeStamp(FileName);
         InputData data;
 
         do
@@ -283,16 +284,15 @@ public class Parser : ParserTemplate, IParser
         if (!ErrorLog.ContainsKey(FileName))
         {
             FileManager.WriteAggregateToFile(FileName, _aggregate, ElapsedTime);
+            FileManager.MoveFileToArchive(FileName);
         }
         else
         {
             log.Debug($"Writing error logs to file {FileName}.ERRORS.txt");
             FileManager.WriteErrorsToErrorFile(FileName, ErrorLog[FileName]);
+            FileManager.MoveFileToErrorFolder(FileName);
             log.Debug($"Finished writing error logs to file {FileName}.ERRORS.txt");
         }
-
-        log.Info($"Moving {FileName} into: '{ConfigReader.ReadConfigData().ArchiveFolder}'.");
-        FileManager.MoveFileToArchive(FileName);
 
     }
 

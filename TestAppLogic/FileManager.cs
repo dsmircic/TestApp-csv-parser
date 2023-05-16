@@ -1,4 +1,5 @@
 ﻿using log4net;
+using System.Runtime.Intrinsics.X86;
 
 namespace TestAppLogic;
 
@@ -63,13 +64,16 @@ public static class FileManager
     public static void MoveFileToErrorFolder(string file)
     {
         var source = Path.Combine(parameters.InputFolder, file);
-        var destination = Path.Combine(parameters.ArchiveFolder, file);
+        var destination = Path.Combine(parameters.ErrorFolder, file);
 
         if (!File.Exists(destination))
         {
             log.Debug($"Starting relocation of {file} to {destination}...");
             File.Move(source, destination);
             log.Debug($"Finished relocation of {file} to {destination}.");
+        } else
+        {
+            log.Warn($"File {file} already exists at destination.");
         }
 
     }
@@ -88,6 +92,9 @@ public static class FileManager
             log.Debug($"Starting relocation of {file} to {destination}...");
             File.Move(source, destination);
             log.Debug($"Finished relocation of {file} to {destination}.");
+        } else
+        {
+            log.Warn($"File {file} already exists at destination.");
         }
     }
 }
