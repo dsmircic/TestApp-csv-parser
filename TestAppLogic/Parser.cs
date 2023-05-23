@@ -25,11 +25,12 @@ public abstract class ParserTemplate
     /// </summary>
     /// <param name="data">Struct of data to be parsed.</param>
     /// <param name="lineNo">Specifies which line is currently being validated.</param>
-    protected void ParseLine(InputData data, int lineNo)
+    protected bool ParseLine(InputData data, int lineNo)
     {
-        _ = ValidateMsisdn(data, lineNo);
-        _ = ValidateAmount(data, lineNo);
-        _ = ValidateTimestamp(data, lineNo);
+
+        return  ValidateMsisdn(data, lineNo) && 
+                ValidateAmount(data, lineNo) && 
+                ValidateTimestamp(data, lineNo);
     }
 
     /// <summary>
@@ -118,17 +119,17 @@ public class Parser : ParserTemplate, IParser
             return true;
         }
 
-        var err = $"Line: {lineNo} - {$"{data.MSISDN};{data.Amount};{data.Timestamp}"} {DateTime.Now : yyyy.MM.dd. HH:mm:ss} Validation error";
+        var err = $"Line: {lineNo} - {$"{data.MSISDN};{data.Amount};{data.Timestamp}"} {DateTime.Now : yyyy.MM.dd. HH:mm:ss} Validation error - ";
 
         if (amount > 10000)
         {
-            log.Error($"Amount cannot be greater than {_dataParams.MAX_AMOUNT}");
             err += $" Amount cannot be greater than {_dataParams.MAX_AMOUNT}";
+            log.Error($"Amount cannot be greater than {_dataParams.MAX_AMOUNT}");
         }
         else
         {
-            log.Error($"Amount cannot be less than {_dataParams.MIN_AMOUNT}");
             err += $" Amount cannot be less than {_dataParams.MIN_AMOUNT}";
+            log.Error($"Amount cannot be less than {_dataParams.MIN_AMOUNT}");
         }
 
         if (ErrorLog.ContainsKey(FileName))
@@ -140,12 +141,12 @@ public class Parser : ParserTemplate, IParser
             ErrorLog.Add(FileName, new List<string> { err });
         }
 
-        throw new InvalidDataException();
+        return false;
     }
 
     protected override bool ValidateMsisdn(InputData data, int lineNo)
     {
-        var pattern = @"3859[12789]\d\d\d\d\d\d?";
+        var pattern = @"^3859[12789][1-9]\d{5,6}$";
         var MSISDN = data.MSISDN;
 
         if (MSISDN == null)
@@ -155,7 +156,8 @@ public class Parser : ParserTemplate, IParser
 
         if (isMatch) return true;
 
-        var err = $"Line: {lineNo} - {$"{data.MSISDN};{data.Amount};{data.Timestamp}"} {DateTime.Now: yyyy.MM.dd. HH:mm:ss} Validation error";
+        var err = $"Line: {lineNo} - {$"{data.MSISDN};{data.Amount};{data.Timestamp}"} {DateTime.Now: yyyy.MM.dd. HH:mm:ss} Validation error - Invalid MSISDN";
+        log.Error(err);
 
         if (ErrorLog.ContainsKey(FileName))
         {
@@ -166,7 +168,7 @@ public class Parser : ParserTemplate, IParser
             ErrorLog.Add(FileName, new List<string> { err });
         }
 
-        throw new InvalidDataException();
+        return false;
     }
 
     protected override bool ValidateTimestamp(InputData data, int lineNo)
@@ -201,7 +203,7 @@ public class Parser : ParserTemplate, IParser
             ErrorLog.Add(FileName, new List<string> { err });
         }
 
-        throw new InvalidDataException();
+        return false;
     }
 
     /// <summary>
@@ -248,9 +250,9 @@ public class Parser : ParserTemplate, IParser
         do
         {
             data = _reader.ReadLine();
-            try
+
+            if (this.ParseLine(data, ++LineNo))
             {
-                this.ParseLine(data, ++LineNo);
                 var day = data.Timestamp.DayOfWeek;
 
                 if (_aggregate.ContainsKey(day))
@@ -261,11 +263,9 @@ public class Parser : ParserTemplate, IParser
                 {
                     _aggregate[day] = data.Amount;
                 }
+            }
 
-            }
-            catch (InvalidDataException)
-            {
-            }
+            
         }
         while (_reader.HasNextLine());
 

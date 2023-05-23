@@ -109,7 +109,7 @@ public class Generator : GeneratorTemplate, IGenerator
 
     protected override string GenerateMsisdn()
     {
-        var sixDigit = Random.NextDouble() > 0.5 ? 6 : 5;
+        var digitNum = Random.NextDouble() > 0.5 ? 6 : 5;
 
         StringBuilder stringBuilder = new();
 
@@ -117,7 +117,7 @@ public class Generator : GeneratorTemplate, IGenerator
         _ = stringBuilder.Append(_dataParameters.secondMSDigit[Random.Next(0, _dataParameters.secondMSDigit.Length - 1)]);
         _ = stringBuilder.Append(Random.Next(1, 9));
 
-        for (int i = 0; i < sixDigit; i++)
+        for (int i = 0; i < digitNum; i++)
         {
             _ = stringBuilder.Append(Random.Next(0, 9));
         }
